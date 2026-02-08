@@ -5,16 +5,13 @@ from uuid import uuid4
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from schemas.requests import TextRequest, TopicsRequest
-from services.file_reader import read_file
-from services.sentiment import analyze_sentiment
-from services.speech import transcribe
-from services.summarizer import summarize
-from services.topics import extract_topics
+from services.file_reader_services import read_file
+from services.sentiment_services import analyze_sentiment
+from services.speech_services import transcribe
+from services.summarizer_services import summarize
+from services.topics_services import extract_topics
 
 router = APIRouter(prefix="/analyze", tags=["Analyze"])
-
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.post("/summarize")

@@ -1,22 +1,19 @@
+import os
+
+from dotenv import load_dotenv
 from transformers import AutoTokenizer, pipeline
 
-MODEL_NAME = "distilbert-base-uncased-finetuned-sst-2-english"
+from utils.chunk_text import chunk_text
+
+load_dotenv()
+
+MODEL_NAME = os.getenv("SENTIMENT_MODEL_NAME")
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
 sentiment_pipeline = pipeline(
     "sentiment-analysis", model=MODEL_NAME, tokenizer=tokenizer
 )
-
-MAX_TOKENS = 450
-
-
-def chunk_text(text: str):
-    tokens = tokenizer.encode(text, add_special_tokens=False)
-
-    for i in range(0, len(tokens), MAX_TOKENS):
-        chunk = tokens[i : i + MAX_TOKENS]
-        yield tokenizer.decode(chunk, skip_special_tokens=True)
 
 
 def analyze_sentiment(text: str):
@@ -27,11 +24,10 @@ def analyze_sentiment(text: str):
 
     results = []
 
-    for chunk in chunk_text(text):
+    for chunk in chunk_text(text, tokenizer):
         result = sentiment_pipeline(chunk, truncation=True)[0]
         results.append(result)
 
-    # 🔢 promedio simple
     positive = sum(1 for r in results if r["label"] == "POSITIVE")
     negative = sum(1 for r in results if r["label"] == "NEGATIVE")
 
