@@ -23,7 +23,7 @@ def summarize(text: str) -> str:
     summaries = []
 
     for chunk in chunk_text(text, tokenizer):
-        output = summarizer(chunk, max_length=150, min_length=40, truncation=True)
+        output = summarizer(chunk, max_length=150, min_length=40)
 
         summaries.append(output[0]["summary_text"])
 

@@ -1,13 +1,12 @@
 from typing import List, Optional
-from uuid import UUID
 
 from config.supabase import supabase
-from models.audio_transcription import (
+from models.audio_transcription_model import (
     AudioTranscription,
     AudioTranscriptionCreate,
     AudioTranscriptionWithDocument,
 )
-from models.document import Document
+from models.documment_model import Document
 
 
 class AudioService:
@@ -38,7 +37,7 @@ class AudioService:
         document = Document(**data.pop("document")) if data.get("document") else None
         return AudioTranscriptionWithDocument(**data, document=document)
 
-    async def get_by_document(self, document_id: UUID) -> List[AudioTranscription]:
+    async def get_by_document(self, document_id: str) -> List[AudioTranscription]:
         response = (
             supabase.table("audio_transcriptions")
             .select("*")
@@ -48,7 +47,7 @@ class AudioService:
         )
         return [AudioTranscription(**t) for t in response.data]
 
-    async def delete_by_document(self, document_id: UUID) -> bool:
+    async def delete_by_document(self, document_id: str) -> bool:
         response = (
             supabase.table("audio_transcriptions")
             .delete()
@@ -56,3 +55,6 @@ class AudioService:
             .execute()
         )
         return bool(response.data)
+
+
+audio_service = AudioService()

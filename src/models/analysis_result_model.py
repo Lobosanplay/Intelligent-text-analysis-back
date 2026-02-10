@@ -1,16 +1,14 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from typing import Any, Dict, Optional
 
-from documment_model import Document
 from pydantic import BaseModel
 
 
 class AnalysisResultBase(BaseModel):
-    document_id: Optional[UUID] = None
+    document_id: Optional[str] = None
     summary: Optional[str] = None
     sentiment: Optional[Dict[str, Any]] = None
-    topics: Optional[List[str]] = None
+    topics: Optional[list[list[str]]] = None
     model_version: Optional[str] = None
 
 
@@ -27,4 +25,4 @@ class AnalysisResult(AnalysisResultBase):
 
 
 class AnalysisResultWithDocument(AnalysisResult):
-    document: Optional[Document] = None
+    document: Optional["Document"] = None

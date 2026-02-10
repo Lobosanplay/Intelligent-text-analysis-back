@@ -1,15 +1,15 @@
-import os
-import shutil
-from uuid import uuid4
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
-
+from errors.domain_errors import DuplicateDocumentError
 from schemas.requests import TextRequest, TopicsRequest
-from services.file_reader_services import read_file
+from services.documment_services import document_service
 from services.sentiment_services import analyze_sentiment
-from services.speech_services import transcribe
 from services.summarizer_services import summarize
 from services.topics_services import extract_topics
+from services.upload_files_services import upload_file_to_supabase
+from utils.calculate_hash import hash_file
+from workers.audio_worker import process_audio_file
+from workers.document_worker import process_document_file
 
 router = APIRouter(prefix="/analyze", tags=["Analyze"])
 
@@ -42,68 +42,81 @@ def topics_text(payload: TopicsRequest):
 
 
 @router.post("/transcribe")
-async def transcribe_and_analyze(file: UploadFile = File(...)):
+async def transcribe_and_analyze(
+    file: UploadFile = File(...),
+    user_id: str = None,
+    background_tasks: BackgroundTasks = None,
+):
     if not file.content_type.startswith("audio/"):
-        raise HTTPException(status_code=400, detail="Invalid audio file")
+        raise HTTPException(400, "Invalid audio file")
 
-    try:
-        audio_id = f"{uuid4()}_{file.filename}"
-        audio_path = os.path.join(UPLOAD_DIR, audio_id)
+    file_bytes = await file.read()
 
-        with open(audio_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+    file_hash = hash_file(file_bytes)
 
-        text = transcribe(audio_path)
+    exists = await document_service.exists_by_hash(user_id, file_hash)
 
-        if not text or len(text.strip()) < 5:
-            raise HTTPException(400, "Whisper returned empty text")
+    if exists:
+        raise DuplicateDocumentError(
+            message="You already uploaded this file",
+            details={"filename": file.filename},
+        )
 
-        summary = summarize(text)
-        sentiment = analyze_sentiment(text)
+    document = await upload_file_to_supabase(
+        file_bytes=file_bytes,
+        filename=file.filename,
+        content_type=file.content_type,
+        file_hash=file_hash,
+        user_id=user_id,
+    )
 
-        sentences = [s.strip() for s in text.split(".") if len(s.strip()) > 10]
-        topics = extract_topics(sentences)
+    background_tasks.add_task(
+        process_audio_file,
+        document_id=document.id,
+        storage_path=document.storage_path,
+        user_id=user_id,
+    )
 
-        return {
-            "transcription": text,
-            "summary": summary,
-            "sentiment": sentiment,
-            "topics": topics.tolist() if hasattr(topics, "tolist") else topics,
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "status": "processing",
+        "message": "File uploaded successfully. Analysis started.",
+    }
 
 
 @router.post("/full/file")
-async def full_analysis_file(file: UploadFile = File(...)):
-    try:
-        allowed = [
-            "text/plain",
-            "application/pdf",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ]
-        if file.content_type not in allowed:
-            raise HTTPException(status_code=400, detail="Unsupported file type")
+async def full_analysis_file(
+    file: UploadFile = File(...),
+    user_id: str = None,
+    background_tasks: BackgroundTasks = None,
+):
+    file_bytes = await file.read()
 
-        file_id = f"{uuid4()}_{file.filename}"
-        file_path = os.path.join(UPLOAD_DIR, file_id)
+    file_hash = hash_file(file_bytes)
 
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        text = read_file(file_path)
+    exists = await document_service.exists_by_hash(user_id, file_hash)
 
-        if not text or len(text.strip()) < 20:
-            raise HTTPException(status_code=400, detail="Empty or unreadable file")
+    if exists:
+        raise DuplicateDocumentError(
+            message="You already uploaded this file",
+            details={"filename": file.filename},
+        )
 
-        summary = summarize(text)
-        sentiment = analyze_sentiment(text)
-        sentences = [s.strip() for s in text.split(".") if len(s.strip()) > 10]
-        topics = extract_topics(sentences)
-        return {
-            "summary": summary,
-            "sentiment": sentiment,
-            "topics": topics.tolist() if hasattr(topics, "tolist") else topics,
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    document = await upload_file_to_supabase(
+        file_bytes=file_bytes,
+        filename=file.filename,
+        content_type=file.content_type,
+        file_hash=file_hash,
+        user_id=user_id,
+    )
+
+    background_tasks.add_task(
+        process_document_file,
+        document.id,
+        document.storage_path,
+        user_id,
+    )
+
+    return {
+        "status": "processing",
+        "message": "File uploaded successfully. Analysis started.",
+    }

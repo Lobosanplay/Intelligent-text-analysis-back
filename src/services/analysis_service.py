@@ -1,13 +1,12 @@
-from typing import Any, List, Optional
-from uuid import UUID
+from typing import List, Optional
 
 from config.supabase import supabase
-from models.analysis_result import (
+from models.analysis_result_model import (
     AnalysisResult,
     AnalysisResultCreate,
     AnalysisResultWithDocument,
 )
-from models.document import Document
+from models.documment_model import Document
 
 
 class AnalysisService:
@@ -34,7 +33,7 @@ class AnalysisService:
         document = Document(**data.pop("document")) if data.get("document") else None
         return AnalysisResultWithDocument(**data, document=document)
 
-    async def get_by_document(self, document_id: UUID) -> List[AnalysisResult]:
+    async def get_by_document(self, document_id: str) -> List[AnalysisResult]:
         response = (
             supabase.table("analysis_results")
             .select("*")
@@ -44,7 +43,7 @@ class AnalysisService:
         )
         return [AnalysisResult(**r) for r in response.data]
 
-    async def delete_by_document(self, document_id: UUID) -> bool:
+    async def delete_by_document(self, document_id: str) -> bool:
         response = (
             supabase.table("analysis_results")
             .delete()
@@ -52,3 +51,6 @@ class AnalysisService:
             .execute()
         )
         return bool(response.data)
+
+
+analysis_service = AnalysisService()

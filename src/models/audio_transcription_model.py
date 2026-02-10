@@ -1,13 +1,11 @@
 from datetime import datetime
 from typing import Optional
-from uuid import UUID
 
-from documment_model import Document
 from pydantic import BaseModel
 
 
 class AudioTranscriptionBase(BaseModel):
-    document_id: Optional[UUID] = None
+    document_id: Optional[str] = None
     transcript: Optional[str] = None
     language: Optional[str] = None
     duration: Optional[int] = None
@@ -26,4 +24,4 @@ class AudioTranscription(AudioTranscriptionBase):
 
 
 class AudioTranscriptionWithDocument(AudioTranscription):
-    document: Optional[Document] = None
+    document: Optional["Document"] = None
