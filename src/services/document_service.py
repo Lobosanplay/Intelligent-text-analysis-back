@@ -1,11 +1,11 @@
 from typing import Any, Dict, List, Optional
 
 from config.supabase import supabase
-from models.documment_model import Document, DocumentCreate
+from models.document_model import Document, DocumentCreate
 
 
 class DocumentService:
-    async def create(self, document: DocumentCreate) -> Document:
+    def create(self, document: DocumentCreate) -> Document:
         response = (
             supabase.table("documents")
             .insert(document.model_dump(exclude_none=True, mode="json"))
@@ -59,6 +59,22 @@ class DocumentService:
             .execute()
         )
         return bool(response.data)
+
+    async def mark_completed(self, document_id: str):
+        (
+            supabase.table("documents")
+            .update({"status": "completed"})
+            .eq("id", document_id)
+            .execute()
+        )
+
+    async def mark_failed(self, document_id: str):
+        (
+            supabase.table("documents")
+            .update({"status": "failed"})
+            .eq("id", document_id)
+            .execute()
+        )
 
 
 document_service = DocumentService()

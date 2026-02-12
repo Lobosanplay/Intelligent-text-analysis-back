@@ -15,6 +15,13 @@ sentiment_pipeline = pipeline(
     "sentiment-analysis", model=MODEL_NAME, tokenizer=tokenizer
 )
 
+raw_max = tokenizer.model_max_length
+
+if raw_max > 4096:
+    raw_max = 1024
+
+safe_tokens = int(raw_max * 0.8)
+
 
 def analyze_sentiment(text: str):
     text = text.strip()
@@ -24,7 +31,7 @@ def analyze_sentiment(text: str):
 
     results = []
 
-    for chunk in chunk_text(text, tokenizer):
+    for chunk in chunk_text(text, tokenizer, safe_tokens):
         result = sentiment_pipeline(chunk, truncation=True)[0]
         results.append(result)
 

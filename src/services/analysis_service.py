@@ -6,7 +6,7 @@ from models.analysis_result_model import (
     AnalysisResultCreate,
     AnalysisResultWithDocument,
 )
-from models.documment_model import Document
+from models.document_model import Document
 
 
 class AnalysisService:

@@ -9,6 +9,7 @@ class DocumentBase(BaseModel):
     original_filename: Optional[str] = None
     storage_path: Optional[str] = None
     file_hash: Optional[str] = None
+    status: str = "processing"
 
 
 class DocumentCreate(DocumentBase):

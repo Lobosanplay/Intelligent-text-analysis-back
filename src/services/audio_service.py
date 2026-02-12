@@ -6,7 +6,7 @@ from models.audio_transcription_model import (
     AudioTranscriptionCreate,
     AudioTranscriptionWithDocument,
 )
-from models.documment_model import Document
+from models.document_model import Document
 
 
 class AudioService:
