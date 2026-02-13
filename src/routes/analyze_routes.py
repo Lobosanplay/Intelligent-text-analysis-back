@@ -1,17 +1,26 @@
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+import hashlib
+import os
+import shutil
+import tempfile
 
-from errors.domain_errors import DuplicateDocumentError
+from dotenv import load_dotenv
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
+
+from errors.domain_errors import DuplicateDocumentError, FileTooLargeError
 from schemas.requests import TextRequest, TopicsRequest
-from services.documment_services import document_service
-from services.sentiment_services import analyze_sentiment
-from services.summarizer_services import summarize
-from services.topics_services import extract_topics
-from services.upload_files_services import upload_file_to_supabase
-from utils.calculate_hash import hash_file
-from workers.audio_worker import process_audio_file
-from workers.document_worker import process_document_file
+from services.document_service import document_service
+from services.sentiment_service import analyze_sentiment
+from services.summarizer_service import summarize
+from services.topics_service import extract_topics
+from services.upload_files_service import upload_file_to_supabase
+from workers.generic_worker import process_document_generic
+
+load_dotenv()
 
 router = APIRouter(prefix="/analyze", tags=["Analyze"])
+
+MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", 200))
 
 
 @router.post("/summarize")
@@ -41,82 +50,61 @@ def topics_text(payload: TopicsRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/transcribe")
-async def transcribe_and_analyze(
+@router.post("/upload", status_code=202)
+async def upload_file(
     file: UploadFile = File(...),
     user_id: str = None,
     background_tasks: BackgroundTasks = None,
 ):
-    if not file.content_type.startswith("audio/"):
-        raise HTTPException(400, "Invalid audio file")
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        temp_path = tmp.name
 
-    file_bytes = await file.read()
+    size_mb = os.path.getsize(temp_path) / (1024 * 1024)
 
-    file_hash = hash_file(file_bytes)
+    if size_mb > MAX_FILE_SIZE_MB:
+        os.remove(temp_path)
+        raise FileTooLargeError(
+            message="File too large",
+            details={"filename": file.filename, "size": size_mb},
+        )
+
+    hasher = hashlib.sha256()
+    with open(temp_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            hasher.update(chunk)
+    file_hash = hasher.hexdigest()
 
     exists = await document_service.exists_by_hash(user_id, file_hash)
 
     if exists:
+        os.remove(temp_path)
         raise DuplicateDocumentError(
             message="You already uploaded this file",
             details={"filename": file.filename},
         )
 
-    document = await upload_file_to_supabase(
-        file_bytes=file_bytes,
-        filename=file.filename,
-        content_type=file.content_type,
-        file_hash=file_hash,
-        user_id=user_id,
+    document = await run_in_threadpool(
+        upload_file_to_supabase,
+        temp_path,
+        file.filename,
+        file_hash,
+        file.content_type,
+        user_id,
+        "processing",
     )
+
+    os.remove(temp_path)
 
     background_tasks.add_task(
-        process_audio_file,
-        document_id=document.id,
-        storage_path=document.storage_path,
-        user_id=user_id,
-    )
-
-    return {
-        "status": "processing",
-        "message": "File uploaded successfully. Analysis started.",
-    }
-
-
-@router.post("/full/file")
-async def full_analysis_file(
-    file: UploadFile = File(...),
-    user_id: str = None,
-    background_tasks: BackgroundTasks = None,
-):
-    file_bytes = await file.read()
-
-    file_hash = hash_file(file_bytes)
-
-    exists = await document_service.exists_by_hash(user_id, file_hash)
-
-    if exists:
-        raise DuplicateDocumentError(
-            message="You already uploaded this file",
-            details={"filename": file.filename},
-        )
-
-    document = await upload_file_to_supabase(
-        file_bytes=file_bytes,
-        filename=file.filename,
-        content_type=file.content_type,
-        file_hash=file_hash,
-        user_id=user_id,
-    )
-
-    background_tasks.add_task(
-        process_document_file,
+        process_document_generic,
         document.id,
         document.storage_path,
-        user_id,
+        document.type,
     )
 
     return {
+        "document_id": document.id,
         "status": "processing",
-        "message": "File uploaded successfully. Analysis started.",
+        "message": "File uploaded. Processing started.",
     }
