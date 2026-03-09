@@ -21,6 +21,6 @@ class UnsupportedFileTypeError(DomainError):
     status_code: int = 400
 
 
-class FileTooLargeError(DomainError):
-    code = "FILE_TOO_LARGE"
-    status_code: int = 413
+class PlanLimitExeceeded(DomainError):
+    code = "PLAN_LIMIT_EXECEEDED"
+    status_code: int = 400

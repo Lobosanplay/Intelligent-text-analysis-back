@@ -7,13 +7,14 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
-from errors.domain_errors import DuplicateDocumentError, FileTooLargeError
+from errors.domain_errors import DuplicateDocumentError
 from schemas.requests import TextRequest, TopicsRequest
-from services.document_service import document_service
-from services.sentiment_service import analyze_sentiment
-from services.summarizer_service import summarize
-from services.topics_service import extract_topics
-from services.upload_files_service import upload_file_to_supabase
+from services.document.document_service import document_service
+from services.plan.plan_service import plan_service
+from services.sentiment.sentiment_service import analyze_sentiment
+from services.summarizer.summarizer_service import summarize
+from services.topics.topics_service import extract_topics
+from services.upload_files.upload_files_service import upload_file_to_supabase
 from workers.generic_worker import process_document_generic
 
 load_dotenv()
@@ -52,9 +53,9 @@ def topics_text(payload: TopicsRequest):
 
 @router.post("/upload", status_code=202)
 async def upload_file(
+    user_id: str,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    user_id: str = None,
-    background_tasks: BackgroundTasks = None,
 ):
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         shutil.copyfileobj(file.file, tmp)
@@ -62,12 +63,7 @@ async def upload_file(
 
     size_mb = os.path.getsize(temp_path) / (1024 * 1024)
 
-    if size_mb > MAX_FILE_SIZE_MB:
-        os.remove(temp_path)
-        raise FileTooLargeError(
-            message="File too large",
-            details={"filename": file.filename, "size": size_mb},
-        )
+    await plan_service.validate_document_upload(user_id, size_mb)
 
     hasher = hashlib.sha256()
     with open(temp_path, "rb") as f:

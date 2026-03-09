@@ -1,7 +1,7 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from config.supabase import supabase
-from models.document_model import Document, DocumentCreate
+from models.document.document_model import Document, DocumentCreate
 
 
 class DocumentService:
@@ -15,13 +15,17 @@ class DocumentService:
         if not response.data:
             raise Exception("Failed to create document")
 
-        return Document(**response.data[0])
+        return Document.model_validate(response.data[0])
 
-    async def get(self, document_id: str) -> Optional[Document]:
+    async def get_by_document_id(self, document_id: str) -> Document:
         response = (
             supabase.table("documents").select("*").eq("id", str(document_id)).execute()
         )
-        return Document(**response.data[0]) if response.data else None
+
+        if not response.data:
+            raise Exception("Failed get document")
+
+        return Document.model_validate(response.data[0])
 
     async def get_by_user(self, user_id: str) -> List[Document]:
         response = (
@@ -31,18 +35,20 @@ class DocumentService:
             .order("created_at", desc=True)
             .execute()
         )
-        return [Document(**doc) for doc in response.data]
+        return [Document(doc) for doc in response.data]
 
-    async def update(
-        self, document_id: str, updates: Dict[str, Any]
-    ) -> Optional[Document]:
+    async def update(self, document_id: str, updates: Dict[str, Any]) -> Document:
         response = (
             supabase.table("documents")
             .update(updates)
             .eq("id", str(document_id))
             .execute()
         )
-        return Document(**response.data[0]) if response.data else None
+
+        if not response.data:
+            raise Exception("Failed to update document")
+
+        return Document.model_validate(response.data[0])
 
     async def delete(self, document_id: str) -> bool:
         response = (

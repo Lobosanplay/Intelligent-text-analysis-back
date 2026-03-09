@@ -1,9 +1,9 @@
-from models.analysis_result_model import AnalysisResultCreate
-from services.analysis_service import analysis_service
-from services.document_service import document_service
-from services.sentiment_service import analyze_sentiment
-from services.summarizer_service import summarize
-from services.topics_service import extract_topics
+from models.analysis_result.analysis_result_model import AnalysisResultCreate
+from services.analysis.analysis_service import analysis_service
+from services.document.document_service import document_service
+from services.sentiment.sentiment_service import analyze_sentiment
+from services.summarizer.summarizer_service import summarize
+from services.topics.topics_service import extract_topics
 
 
 class LLMPipelineService:
