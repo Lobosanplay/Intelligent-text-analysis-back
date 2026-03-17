@@ -1,12 +1,12 @@
 from typing import List, Optional
 
 from config.supabase import supabase
-from models.analysis_result_model import (
+from models.analysis_result.analysis_result_model import (
     AnalysisResult,
     AnalysisResultCreate,
     AnalysisResultWithDocument,
 )
-from models.document_model import Document
+from models.document.document_model import Document
 
 
 class AnalysisService:
@@ -16,7 +16,7 @@ class AnalysisService:
             .insert(analysis.model_dump(exclude_none=True))
             .execute()
         )
-        return AnalysisResult(**response.data[0])
+        return AnalysisResult.model_validate(response.data[0])
 
     async def get(self, result_id: int) -> Optional[AnalysisResultWithDocument]:
         response = (
@@ -30,7 +30,11 @@ class AnalysisService:
             return None
 
         data = response.data[0]
-        document = Document(**data.pop("document")) if data.get("document") else None
+        document = (
+            Document.model_validate(data.pop("document"))
+            if data.get("document")
+            else None
+        )
         return AnalysisResultWithDocument(**data, document=document)
 
     async def get_by_document(self, document_id: str) -> List[AnalysisResult]:
@@ -41,7 +45,7 @@ class AnalysisService:
             .order("created_at", desc=True)
             .execute()
         )
-        return [AnalysisResult(**r) for r in response.data]
+        return [AnalysisResult.model_validate(r) for r in response.data]
 
     async def delete_by_document(self, document_id: str) -> bool:
         response = (
