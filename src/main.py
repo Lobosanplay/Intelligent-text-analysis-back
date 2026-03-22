@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from errors.domain_errors import DomainError
-from routes.analyze_routes import router as analyze_router
+from routes.analyze.analyze_routes import router as analyze_router
+from routes.payment.payment_routes import router as payment_router
 
 app = FastAPI()
 
@@ -16,6 +17,7 @@ app.add_middleware(
 )
 
 app.include_router(analyze_router)
+app.include_router(payment_router)
 
 
 @app.exception_handler(DomainError)
@@ -44,3 +46,9 @@ async def root():
         "docs": "/docs",
         "redoc": "/redoc",
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("main:app", reload=True)

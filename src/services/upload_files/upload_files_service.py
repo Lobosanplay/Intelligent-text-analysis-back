@@ -1,7 +1,6 @@
 from config.supabase import supabase
-from models.document_model import DocumentCreate
-
-from .document_service import document_service
+from models.document.document_model import DocumentCreate
+from services.document.document_service import document_service
 
 
 def upload_file_to_supabase(

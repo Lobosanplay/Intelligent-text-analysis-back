@@ -1,12 +1,12 @@
 from typing import List, Optional
 
 from config.supabase import supabase
-from models.audio_transcription_model import (
+from models.audio_trancription.audio_transcription_model import (
     AudioTranscription,
     AudioTranscriptionCreate,
     AudioTranscriptionWithDocument,
 )
-from models.document_model import Document
+from models.document.document_model import Document
 
 
 class AudioService:

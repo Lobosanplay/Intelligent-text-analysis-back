@@ -4,11 +4,11 @@ import tempfile
 from dotenv import load_dotenv
 
 from config.supabase import supabase
-from models.audio_transcription_model import AudioTranscriptionCreate
-from services.audio_service import audio_service
-from services.document_service import document_service
-from services.llm_pipeline_service import llm_pipeline_service
-from services.speech_service import transcribe
+from models.audio_trancription.audio_transcription_model import AudioTranscriptionCreate
+from services.audio_service.audio_service import audio_service
+from services.document.document_service import document_service
+from services.llm_pipeline.llm_pipeline_service import llm_pipeline_service
+from services.speech.speech_service import transcribe
 from utils.audio_utils import extract_audio, get_media_duration
 from utils.file_reader import read_file
 from utils.run_blocking import run_blocking
