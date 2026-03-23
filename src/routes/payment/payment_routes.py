@@ -19,8 +19,12 @@ async def create_checkout_session(request: Request, userId: str, email: str):
         form = await request.form()
         lookup_key = form.get("lookup_key")
 
-        prices = stripe.Price.list(lookup_keys=[lookup_key], expand=["data.product"])
+        if not isinstance(lookup_key, str):
+            raise HTTPException(status_code=400, detail="lookup_key inválido")
 
+        print(lookup_key)
+        prices = stripe.Price.list(limit=3, expand=["data.product"])
+        print(prices)
         checkout_session = stripe.checkout.Session.create(
             line_items=[
                 {

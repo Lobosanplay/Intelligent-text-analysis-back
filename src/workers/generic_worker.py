@@ -1,3 +1,4 @@
+import math
 import os
 import tempfile
 
@@ -5,26 +6,36 @@ from dotenv import load_dotenv
 
 from config.supabase import supabase
 from models.audio_trancription.audio_transcription_model import AudioTranscriptionCreate
+from models.plan.plan_models import PlanBase
 from services.audio_service.audio_service import audio_service
 from services.document.document_service import document_service
 from services.llm_pipeline.llm_pipeline_service import llm_pipeline_service
 from services.speech.speech_service import transcribe
+from services.usage_stats.usage_stats_service import usage_stats_service
 from utils.audio_utils import extract_audio, get_media_duration
 from utils.file_reader import read_file
 from utils.run_blocking import run_blocking
 
 load_dotenv()
 
-MAX_VIDEO_DURATION_SECONDS = int(os.getenv("MAX_VIDEO_DURATION_SECONDS", 3600))
-MAX_AUDIO_DURATION_SECONDS = int(os.getenv("MAX_AUDIO_DURATION_SECONDS", 3600))
 
-
-async def process_document_generic(document_id: str, storage_path: str, file_type: str):
+async def process_document_generic(
+    document_id: str,
+    plan: PlanBase,
+    storage_path: str,
+    file_type: str,
+    user_id: str,
+    size_mb: float,
+):
     tmp_path = None
     audio_path = None
 
     try:
-        file_bytes = supabase.storage.from_("documents").download(storage_path)
+        usage = await usage_stats_service.get_usage_by_user_id(user_id)
+
+        file_bytes = await run_blocking(
+            supabase.storage.from_("documents").download, storage_path
+        )
 
         suffix = os.path.splitext(storage_path)[1]
 
@@ -34,9 +45,10 @@ async def process_document_generic(document_id: str, storage_path: str, file_typ
 
         if file_type.startswith("video/"):
             duration = await run_blocking(get_media_duration, tmp_path)
+            minutes = math.ceil(duration / 60)
 
-            if duration > MAX_VIDEO_DURATION_SECONDS:
-                raise ValueError("Video exceeds max duration")
+            if minutes + usage.minutes_audio_processed > plan.max_minutes_audio:
+                raise ValueError("Audio limit exceeded")
 
             audio_path = await run_blocking(extract_audio, tmp_path)
 
@@ -54,9 +66,10 @@ async def process_document_generic(document_id: str, storage_path: str, file_typ
 
         elif file_type.startswith("audio/"):
             duration = await run_blocking(get_media_duration, tmp_path)
+            minutes = math.ceil(duration / 60)
 
-            if duration > MAX_AUDIO_DURATION_SECONDS:
-                raise ValueError("Audio exceeds max duration")
+            if minutes + usage.minutes_audio_processed > plan.max_minutes_audio:
+                raise ValueError("Audio limit exceeded")
 
             text = await run_blocking(transcribe, tmp_path)
 
@@ -71,6 +84,7 @@ async def process_document_generic(document_id: str, storage_path: str, file_typ
             await llm_pipeline_service.run(document_id, text)
 
         else:
+            minutes = 0
             text = await run_blocking(read_file, tmp_path)
 
             if not text or len(text.strip()) < 20:
@@ -79,9 +93,11 @@ async def process_document_generic(document_id: str, storage_path: str, file_typ
             await llm_pipeline_service.run(document_id, text)
 
         await document_service.mark_completed(document_id)
+        await usage_stats_service.increment_user_stats(user_id, size_mb, minutes)
 
     except Exception as e:
-        await document_service.mark_failed(document_id, str(e))
+        await document_service.mark_failed(document_id)
+        raise Exception(e)
 
     finally:
         if tmp_path and os.path.exists(tmp_path):
