@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
-from errors.domain_errors import DuplicateDocumentError
+from errors.domain_errors import DocumentNotReceived, DuplicateDocumentError
 from schemas.requests import TextRequest, TopicsRequest
 from services.document.document_service import document_service
 from services.plan.plan_service import plan_service
@@ -65,6 +65,8 @@ async def upload_file(
 
     await plan_service.validate_document_upload(user_id, size_mb)
 
+    plan = await plan_service.get_user_plan(user_id)
+
     hasher = hashlib.sha256()
     with open(temp_path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
@@ -79,6 +81,9 @@ async def upload_file(
             message="You already uploaded this file",
             details={"filename": file.filename},
         )
+
+    if not file.filename or not file.content_type:
+        raise DocumentNotReceived("No se obtuvo correntamente el archivo")
 
     document = await run_in_threadpool(
         upload_file_to_supabase,
@@ -95,8 +100,11 @@ async def upload_file(
     background_tasks.add_task(
         process_document_generic,
         document.id,
+        plan,
         document.storage_path,
         document.type,
+        user_id,
+        size_mb,
     )
 
     return {

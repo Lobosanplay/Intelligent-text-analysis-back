@@ -16,6 +16,11 @@ class DuplicateDocumentError(DomainError):
     status_code: int = 409
 
 
+class DocumentNotReceived(DomainError):
+    code: str = "DOCUMENT_NOT_RECEICED"
+    status_code: int = 404
+
+
 class UnsupportedFileTypeError(DomainError):
     code = "UNSUPPORTED_FILE_TYPE"
     status_code: int = 400
