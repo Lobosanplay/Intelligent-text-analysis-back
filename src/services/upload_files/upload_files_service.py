@@ -21,7 +21,7 @@ def upload_file_to_supabase(
             file_options={"content-type": content_type},
         )
 
-    response = document_service.create(
+    response = document_service.create_document(
         DocumentCreate(
             user_id=user_id,
             type=content_type,

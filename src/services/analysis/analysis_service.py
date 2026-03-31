@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from config.supabase import supabase
 from models.analysis_result.analysis_result_model import (
@@ -18,7 +18,9 @@ class AnalysisService:
         )
         return AnalysisResult.model_validate(response.data[0])
 
-    async def get(self, result_id: int) -> Optional[AnalysisResultWithDocument]:
+    async def get_by_result_id(
+        self, result_id: int
+    ) -> Optional[AnalysisResultWithDocument]:
         response = (
             supabase.table("analysis_results")
             .select("*, document:documents(*)")
@@ -37,17 +39,18 @@ class AnalysisService:
         )
         return AnalysisResultWithDocument(**data, document=document)
 
-    async def get_by_document(self, document_id: str) -> List[AnalysisResult]:
+    async def get_by_document_id(self, document_id: str) -> AnalysisResult:
         response = (
             supabase.table("analysis_results")
             .select("*")
             .eq("document_id", str(document_id))
             .order("created_at", desc=True)
+            .single()
             .execute()
         )
-        return [AnalysisResult.model_validate(r) for r in response.data]
+        return AnalysisResult.model_validate(response.data)
 
-    async def delete_by_document(self, document_id: str) -> bool:
+    async def delete_by_document_id(self, document_id: str) -> bool:
         response = (
             supabase.table("analysis_results")
             .delete()

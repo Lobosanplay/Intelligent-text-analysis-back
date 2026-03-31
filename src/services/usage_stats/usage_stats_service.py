@@ -3,7 +3,9 @@ from models.usage_stats.usage_stats_models import UsageStatsBase
 
 
 class UsageStatsService:
-    async def create(self, usageStatsData: UsageStatsBase) -> UsageStatsBase:
+    async def create_ussage_stats(
+        self, usageStatsData: UsageStatsBase
+    ) -> UsageStatsBase:
         response = (
             supabase.table("usage_stats")
             .insert(usageStatsData.model_dump(exclude_none=True))
@@ -29,7 +31,9 @@ class UsageStatsService:
 
         return UsageStatsBase.model_validate(response.data)
 
-    async def increment_user_stats(self, user_id: str, size_mb: float, minutes: int):
+    async def increment_user_stats_by_id(
+        self, user_id: str, size_mb: float, minutes: int
+    ):
         supabase.rpc(
             "increment_usage",
             {
@@ -41,7 +45,7 @@ class UsageStatsService:
             },
         ).execute()
 
-    async def deleted_file(self, user_id: str, size_mb: float):
+    async def deleted_file_by_user_id(self, user_id: str, size_mb: float):
         supabase.rpc(
             "increment_usage", {"p_user_id": user_id, "p_total_storage_mb": -size_mb}
         ).execute()

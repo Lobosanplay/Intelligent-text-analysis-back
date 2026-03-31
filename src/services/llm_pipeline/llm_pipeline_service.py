@@ -28,9 +28,9 @@ class LLMPipelineService:
                 )
             )
 
-            await document_service.mark_completed(document_id)
+            await document_service.mark_completed_by_document_id(document_id)
         except Exception as e:
-            await document_service.mark_failed(document_id)
+            await document_service.mark_failed_by_document_id(document_id)
             print(f"Error occurred during LLM pipeline execution: {e}")
 
 
