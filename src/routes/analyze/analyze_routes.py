@@ -3,7 +3,6 @@ import os
 import shutil
 import tempfile
 
-from dotenv import load_dotenv
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
@@ -17,11 +16,7 @@ from services.topics.topics_service import extract_topics
 from services.upload_files.upload_files_service import upload_file_to_supabase
 from workers.generic_worker import process_document_generic
 
-load_dotenv()
-
 router = APIRouter(prefix="/analyze", tags=["Analyze"])
-
-MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", 200))
 
 
 @router.post("/summarize")
@@ -65,7 +60,7 @@ async def upload_file(
 
     await plan_service.validate_document_upload(user_id, size_mb)
 
-    plan = await plan_service.get_user_plan(user_id)
+    plan = await plan_service.get_user_plan_by_id(user_id)
 
     hasher = hashlib.sha256()
     with open(temp_path, "rb") as f:

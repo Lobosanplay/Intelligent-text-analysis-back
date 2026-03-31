@@ -6,10 +6,12 @@ from dotenv import load_dotenv
 
 from config.supabase import supabase
 from models.audio_trancription.audio_transcription_model import AudioTranscriptionCreate
+from models.messages.messages_model import MessageCreate
 from models.plan.plan_models import PlanBase
+from services.analysis.analysis_service import analysis_service
 from services.audio_service.audio_service import audio_service
-from services.document.document_service import document_service
 from services.llm_pipeline.llm_pipeline_service import llm_pipeline_service
+from services.messages.messages_service import message_service
 from services.speech.speech_service import transcribe
 from services.usage_stats.usage_stats_service import usage_stats_service
 from utils.audio_utils import extract_audio, get_media_duration
@@ -26,6 +28,8 @@ async def process_document_generic(
     file_type: str,
     user_id: str,
     size_mb: float,
+    conversation_id: str | None = None,
+    message_id: str | None = None,
 ):
     tmp_path = None
     audio_path = None
@@ -92,11 +96,31 @@ async def process_document_generic(
 
             await llm_pipeline_service.run(document_id, text)
 
-        await document_service.mark_completed(document_id)
-        await usage_stats_service.increment_user_stats(user_id, size_mb, minutes)
+        analysis = await analysis_service.get_by_document_id(document_id)
+        await usage_stats_service.increment_user_stats_by_id(user_id, size_mb, minutes)
+
+        if message_id and conversation_id:
+            await message_service.update_message_by_id(
+                MessageCreate(
+                    role="assistant",
+                    content=str(analysis.id),
+                    conversation_id=conversation_id,
+                    document_id=document_id,
+                ),
+                message_id=message_id,
+            )
 
     except Exception as e:
-        await document_service.mark_failed(document_id)
+        if message_id and conversation_id:
+            await message_service.update_message_by_id(
+                MessageCreate(
+                    role="assistant",
+                    content="Error en el procesamiento de el archivo",
+                    conversation_id=conversation_id,
+                    document_id=document_id,
+                ),
+                message_id=message_id,
+            )
         raise Exception(e)
 
     finally:

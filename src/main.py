@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 
 from errors.domain_errors import DomainError
 from routes.analyze.analyze_routes import router as analyze_router
+from routes.chat.chat_routes import router as chat_router
 from routes.payment.payment_routes import router as payment_router
 
 app = FastAPI()
@@ -18,6 +19,7 @@ app.add_middleware(
 
 app.include_router(analyze_router)
 app.include_router(payment_router)
+app.include_router(chat_router)
 
 
 @app.exception_handler(DomainError)

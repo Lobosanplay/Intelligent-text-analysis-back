@@ -5,7 +5,7 @@ from models.document.document_model import Document, DocumentCreate
 
 
 class DocumentService:
-    def create(self, document: DocumentCreate) -> Document:
+    def create_document(self, document: DocumentCreate) -> Document:
         response = (
             supabase.table("documents")
             .insert(document.model_dump(exclude_none=True, mode="json"))
@@ -37,7 +37,9 @@ class DocumentService:
         )
         return [Document(doc) for doc in response.data]
 
-    async def update(self, document_id: str, updates: Dict[str, Any]) -> Document:
+    async def update_by_document_id(
+        self, document_id: str, updates: Dict[str, Any]
+    ) -> Document:
         response = (
             supabase.table("documents")
             .update(updates)
@@ -50,7 +52,7 @@ class DocumentService:
 
         return Document.model_validate(response.data[0])
 
-    async def delete(self, document_id: str) -> bool:
+    async def delete_by_document_id(self, document_id: str) -> bool:
         response = (
             supabase.table("documents").delete().eq("id", str(document_id)).execute()
         )
@@ -66,7 +68,7 @@ class DocumentService:
         )
         return bool(response.data)
 
-    async def mark_completed(self, document_id: str):
+    async def mark_completed_by_document_id(self, document_id: str):
         (
             supabase.table("documents")
             .update({"status": "completed"})
@@ -74,7 +76,7 @@ class DocumentService:
             .execute()
         )
 
-    async def mark_failed(self, document_id: str):
+    async def mark_failed_by_document_id(self, document_id: str):
         (
             supabase.table("documents")
             .update({"status": "failed"})

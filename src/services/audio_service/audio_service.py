@@ -18,7 +18,7 @@ class AudioService:
             .insert(transcription.model_dump(exclude_none=True))
             .execute()
         )
-        return AudioTranscription(**response.data[0])
+        return AudioTranscription.model_validate(response.data[0])
 
     async def get(
         self, transcription_id: int
@@ -45,7 +45,7 @@ class AudioService:
             .order("created_at", desc=True)
             .execute()
         )
-        return [AudioTranscription(**t) for t in response.data]
+        return [AudioTranscription.model_validate(t) for t in response.data]
 
     async def delete_by_document(self, document_id: str) -> bool:
         response = (
