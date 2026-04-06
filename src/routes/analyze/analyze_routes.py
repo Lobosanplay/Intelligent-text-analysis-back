@@ -3,7 +3,7 @@ import os
 import shutil
 import tempfile
 
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
 from errors.domain_errors import DocumentNotReceived, DuplicateDocumentError
@@ -48,8 +48,8 @@ def topics_text(payload: TopicsRequest):
 
 @router.post("/upload", status_code=202)
 async def upload_file(
-    user_id: str,
     background_tasks: BackgroundTasks,
+    user_id: str = Form(...),
     file: UploadFile = File(...),
 ):
     with tempfile.NamedTemporaryFile(delete=False) as tmp:

@@ -55,8 +55,8 @@ class ConversationsServices:
             supabase.table("conversations").select("*").eq("user_id", user_id).execute()
         )
 
-        if not response.data or response.data == []:
-            raise Exception("Failed getting user conversation ")
+        if not response.data:
+            return []
 
         return [Conversation.from_dict(item) for item in response.data]
 

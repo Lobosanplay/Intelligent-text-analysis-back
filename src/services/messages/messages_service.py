@@ -55,20 +55,18 @@ class MessageServices:
 
         return [Message.from_dict(item) for item in response.data]
 
-    async def get_message_by_conversation_id(
-        self, conversation_id: str
-    ) -> List[Message]:
-        response = (
-            supabase.table("messages")
-            .select("*")
-            .eq("conversation_id", conversation_id)
-            .execute()
-        )
+    async def get_message_by_conversation_id(self, conversation_id: str):
+        response = supabase.rpc(
+            "get_messages_with_analysis",
+            {
+                "p_conversation_id": conversation_id,
+            },
+        ).execute()
 
         if not response.data or response.data == []:
-            raise Exception("Failed to get Message")
+            return []
 
-        return [Message.from_dict(item) for item in response.data]
+        return [item for item in response.data]
 
     def deleted_message_by_id(self, message_id: str) -> Message:
         response = supabase.table("messages").delete().eq("id", message_id).execute()

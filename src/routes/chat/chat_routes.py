@@ -3,7 +3,7 @@ import os
 import shutil
 import tempfile
 
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
 from errors.domain_errors import DocumentNotReceived, DuplicateDocumentError
@@ -21,13 +21,12 @@ router = APIRouter(prefix="/chat", tags=["Chat"])
 
 @router.post("/new")
 async def create_new_chat(
-    user_id: str, background_tasks: BackgroundTasks, file: UploadFile = File(...)
+    background_tasks: BackgroundTasks,
+    user_id: str = Form(...),
+    content: str = Form(""),
+    file: UploadFile = File(...),
 ):
     try:
-        conversation = await conversations_service.create_conversation(
-            ConversationCreate(user_id=user_id, title="New chat")
-        )
-
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             shutil.copyfileobj(file.file, tmp)
             temp_path = tmp.name
@@ -56,6 +55,10 @@ async def create_new_chat(
         if not file.filename or not file.content_type:
             raise DocumentNotReceived("No se obtuvo correntamente el archivo")
 
+        conversation = await conversations_service.create_conversation(
+            ConversationCreate(user_id=user_id, title="New chat")
+        )
+
         document = await run_in_threadpool(
             upload_file_to_supabase,
             temp_path,
@@ -71,7 +74,7 @@ async def create_new_chat(
         message_send = await message_service.create_message(
             MessageCreate(
                 role="user",
-                content=None,
+                content=content,
                 document_id=document.id,
                 conversation_id=conversation.id,
             )
@@ -144,9 +147,10 @@ async def delete_conversation(conversation_id: str):
 
 @router.put("/message")
 async def send_message(
-    conversation_id: str,
-    user_id: str,
     background_tasks: BackgroundTasks,
+    user_id: str = Form(...),
+    conversation_id: str = Form(...),
+    content: str = Form(""),
     file: UploadFile = File(...),
 ):
     try:
@@ -205,7 +209,7 @@ async def send_message(
         message_send = await message_service.create_message(
             MessageCreate(
                 role="user",
-                content=None,
+                content=content,
                 document_id=document.id,
                 conversation_id=conversation_id,
             )
