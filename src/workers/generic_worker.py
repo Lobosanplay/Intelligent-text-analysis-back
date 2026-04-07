@@ -103,7 +103,7 @@ async def process_document_generic(
             await message_service.update_message_by_id(
                 MessageCreate(
                     role="assistant",
-                    content=str(analysis.id),
+                    content=analysis.summary,
                     conversation_id=conversation_id,
                     document_id=document_id,
                 ),
