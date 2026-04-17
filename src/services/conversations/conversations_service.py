@@ -80,5 +80,20 @@ class ConversationsServices:
 
         return False
 
+    async def update_conversation_title(
+        self, new_title: str, conversation_id: str
+    ) -> Conversation:
+        response = (
+            supabase.table("conversations")
+            .update({"title": new_title})
+            .eq("id", conversation_id)
+            .execute()
+        )
+
+        if not response.data:
+            raise Exception("Error updating new title conversation")
+
+        return Conversation.model_validate(response.data[0])
+
 
 conversations_service = ConversationsServices()

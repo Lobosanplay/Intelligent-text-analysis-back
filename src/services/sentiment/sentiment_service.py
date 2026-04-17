@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from transformers import AutoTokenizer, pipeline
 
-from utils.chunk_text import chunk_text
+from utils.chunk_text import chunk_text_tokenizer
 
 load_dotenv()
 
@@ -31,7 +31,7 @@ def analyze_sentiment(text: str):
 
     results = []
 
-    for chunk in chunk_text(text, tokenizer, safe_tokens):
+    for chunk in chunk_text_tokenizer(text, tokenizer, safe_tokens):
         result = sentiment_pipeline(chunk, truncation=True)[0]
         results.append(result)
 
