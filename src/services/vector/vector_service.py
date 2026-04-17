@@ -23,16 +23,16 @@ class VectorService:
     async def search(
         self,
         query: str,
-        document_ids: list[str],
+        document_id: str,
         top_k: int = 5,
     ):
         query_embedding = model.encode([query])[0].tolist()
 
         rows = await document_chunks_service.get_chunks(
-            query_embedding, top_k, document_ids
+            query_embedding, document_id, top_k
         )
 
-        return [row["content"] for row in rows]
+        return rows
 
 
 vector_service = VectorService()

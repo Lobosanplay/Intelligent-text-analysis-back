@@ -1,10 +1,9 @@
 import math
 import os
-import tempfile
+from asyncio.windows_events import NULL
 
 from dotenv import load_dotenv
 
-from config.supabase import supabase
 from models.audio_trancription.audio_transcription_model import AudioTranscriptionCreate
 from models.messages.messages_model import MessageCreate
 from models.plan.plan_models import PlanBase
@@ -16,10 +15,9 @@ from services.messages.messages_service import message_service
 from services.qa.qa_service import qa_service
 from services.usage_stats.usage_stats_service import usage_stats_service
 from services.vector.vector_service import vector_service
-from utils.audio_utils import get_media_duration
 from utils.chunk_text import chunk_text_simple
+from utils.download_to_temp import download_to_temp
 from utils.extract_text import extract_text_from_file
-from utils.run_blocking import run_blocking
 
 load_dotenv()
 
@@ -33,56 +31,47 @@ async def process_document_generic(
     size_mb: float,
     conversation_id: str | None = None,
     message_id: str | None = None,
+    generate_title: bool = True,
 ):
     tmp_path = None
-    audio_path = None
 
     try:
         usage = await usage_stats_service.get_usage_by_user_id(user_id)
 
-        file_bytes = await run_blocking(
-            supabase.storage.from_("documents").download, storage_path
-        )
-
-        suffix = os.path.splitext(storage_path)[1]
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(file_bytes)
-            tmp_path = tmp.name
+        tmp_path = await download_to_temp(storage_path)
 
         if file_type.startswith("video/"):
-            duration = await run_blocking(get_media_duration, tmp_path)
-            minutes = math.ceil(duration / 60)
+            result = await extract_text_from_file(tmp_path, file_type)
+            text = result["text"]
+
+            minutes = math.ceil(result["duration"] / 60) if result["duration"] else 0
 
             if minutes + usage.minutes_audio_processed > plan.max_minutes_audio:
                 raise ValueError("Audio limit exceeded")
-
-            text = await extract_text_from_file(storage_path, file_type)
 
             await audio_service.create(
                 AudioTranscriptionCreate(
                     document_id=document_id,
                     transcript=text,
-                    duration=int(duration),
+                    duration=int(result["duration"]),
                 )
             )
 
             await llm_pipeline_service.run(document_id, text)
 
         elif file_type.startswith("audio/"):
-            duration = await run_blocking(get_media_duration, tmp_path)
-            minutes = math.ceil(duration / 60)
+            result = await extract_text_from_file(tmp_path, file_type)
+            text = result["text"]
+            minutes = math.ceil(result["duration"] / 60) if result["duration"] else 0
 
             if minutes + usage.minutes_audio_processed > plan.max_minutes_audio:
                 raise ValueError("Audio limit exceeded")
-
-            text = await extract_text_from_file(storage_path, file_type)
 
             await audio_service.create(
                 AudioTranscriptionCreate(
                     document_id=document_id,
                     transcript=text,
-                    duration=int(duration),
+                    duration=int(result["duration"]),
                 )
             )
 
@@ -90,7 +79,8 @@ async def process_document_generic(
 
         else:
             minutes = 0
-            text = await extract_text_from_file(storage_path, file_type)
+            result = await extract_text_from_file(tmp_path, file_type)
+            text = result["text"]
 
             chunks = chunk_text_simple(text)
             await vector_service.store_chunks(document_id, chunks)
@@ -102,12 +92,12 @@ async def process_document_generic(
 
         analysis = await analysis_service.get_by_document_id(document_id)
 
-        if analysis.summary and conversation_id:
+        if generate_title and analysis.summary and conversation_id:
             title = await qa_service.generate_title(analysis.summary)
 
             await conversations_service.update_conversation_title(
-                conversation_id,
                 title,
+                conversation_id,
             )
 
         await usage_stats_service.increment_user_stats_by_id(user_id, size_mb, minutes)
@@ -116,7 +106,7 @@ async def process_document_generic(
             await message_service.update_message_by_id(
                 MessageCreate(
                     role="assistant",
-                    content=analysis.summary,
+                    content="",
                     conversation_id=conversation_id,
                     document_id=document_id,
                 ),
@@ -139,6 +129,3 @@ async def process_document_generic(
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.remove(tmp_path)
-
-        if audio_path and os.path.exists(audio_path):
-            os.remove(audio_path)

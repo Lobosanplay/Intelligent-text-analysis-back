@@ -13,7 +13,7 @@ class DocumentChunksService:
     async def get_chunks(
         self,
         query_embedding: str,
-        document_ids: list[str],
+        document_id: str,
         top_k: int = 5,
     ):
         response = supabase.rpc(
@@ -21,7 +21,7 @@ class DocumentChunksService:
             {
                 "query_embedding": query_embedding,
                 "match_count": top_k,
-                "document_ids": document_ids,
+                "document_id": document_id,
             },
         ).execute()
 

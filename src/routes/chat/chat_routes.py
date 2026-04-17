@@ -86,6 +86,7 @@ async def create_new_chat(
             )
         )
 
+        plan = await plan_service.get_user_plan_by_id(user_id)
         if has_question:
             background_tasks.add_task(
                 process_and_answer_worker,
@@ -93,14 +94,14 @@ async def create_new_chat(
                 document.storage_path,
                 content,
                 document.type,
+                plan,
                 user_id,
                 size_mb,
                 conversation.id,
                 message_response.id,
+                generate_title=True,
             )
         else:
-            plan = await plan_service.get_user_plan_by_id(user_id)
-
             background_tasks.add_task(
                 process_document_generic,
                 document.id,
@@ -111,6 +112,7 @@ async def create_new_chat(
                 size_mb,
                 conversation.id,
                 message_response.id,
+                generate_title=True,
             )
 
         return {"message_response": message_response, "message_send": message_send}
@@ -241,10 +243,12 @@ async def send_message(
                 document.storage_path,
                 content,
                 document.type,
+                plan,
                 user_id,
                 size_mb,
                 conversation_id,
                 message_response.id,
+                generate_title=False,
             )
         else:
             background_tasks.add_task(
@@ -257,13 +261,10 @@ async def send_message(
                 size_mb,
                 conversation_id,
                 message_response.id,
+                generate_title=False,
             )
 
-        return {
-            "message_id": message_send.id,
-            "status": "processing",
-            "message": message_response,
-        }
+        return {"message_response": message_response, "message_send": message_send}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error new chat {e}")
