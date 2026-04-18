@@ -1,6 +1,5 @@
 import math
 import os
-from asyncio.windows_events import NULL
 
 from dotenv import load_dotenv
 
