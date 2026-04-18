@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from transformers import AutoTokenizer, pipeline
 
-from utils.chunk_text import chunk_text
+from utils.chunk_text import chunk_text_tokenizer
 
 load_dotenv()
 
@@ -29,7 +29,7 @@ def summarize(text: str) -> str:
 
     summaries = []
 
-    for chunk in chunk_text(text, tokenizer, safe_tokens):
+    for chunk in chunk_text_tokenizer(text, tokenizer, safe_tokens):
         output = summarizer(chunk, max_length=150, min_length=40)
 
         summaries.append(output[0]["summary_text"])
